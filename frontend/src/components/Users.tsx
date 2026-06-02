@@ -294,32 +294,39 @@ const Users = () => {
   };
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchUsers = async () => {
       try {
-        const response = (await getUsers(accessToken!)) as { data: User[] };
+        const response = (await getUsers(accessToken)) as { data: User[] };
         if (!response) return;
         setUsers(response.data);
       } catch (error) {
         console.error('Error fetching users:', error);
+        toast.error('Failed to load users.');
       }
     };
     fetchUsers();
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const response = (await getUserAnalytics(accessToken!)) as UserStats;
-        setLoading(false);
+        const response = (await getUserAnalytics(accessToken)) as UserStats;
         if (!response) return;
         setAnalytics(response);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching user analytics:', error);
+        setAnalytics(null);
+      } finally {
+        setLoading(false);
       }
     };
     fetchAnalytics();
-  }, []);
+  }, [accessToken]);
 
   if (loading) return <Loader />;
   return (

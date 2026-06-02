@@ -450,16 +450,23 @@ const ManageAds = () => {
   };
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchAds = async () => {
-      const res = (await getAdsList(accessToken!)) as Partial<Ad>[];
-      if (!res) {
-        toast.error('Something went wrong. Please try again.');
-        return;
+      try {
+        const res = (await getAdsList(accessToken)) as Partial<Ad>[];
+        if (!res) {
+          toast.error('Something went wrong. Please try again.');
+          return;
+        }
+        setAds(res);
+      } catch (error) {
+        console.error('Error fetching ads:', error);
+        toast.error('Failed to load ads. Please try again.');
       }
-      setAds(res);
     };
     fetchAds();
-  }, []);
+  }, [accessToken]);
 
   return (
     <div className="min-h-screen p-4 text-gray-900 bg-gray-50 dark:bg-gray-900 sm:p-6 lg:p-8 dark:text-gray-100">

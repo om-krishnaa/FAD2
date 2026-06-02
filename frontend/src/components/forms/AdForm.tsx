@@ -59,19 +59,22 @@ export default function AdForm({
   }, [initialData]);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        const response = (await getSettings(accessToken!)) as SystemSettings;
-        setLoading(false);
+        const response = (await getSettings(accessToken)) as SystemSettings;
         if (!response) return;
         setSettings(response);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching settings:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchSettings();
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     if (user!.role === 'super_admin') setPaymentMethod('admin_approved');

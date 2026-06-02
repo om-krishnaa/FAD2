@@ -40,27 +40,30 @@ const Settings = () => {
     useState<NotificationType | null>(null);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchSettings = async () => {
       try {
         setLoading(true);
         const settingResponse = (await getSettings(
-          accessToken!
+          accessToken
         )) as SystemSettings;
         const notificationResponse = (await getNotificationPreferences(
-          accessToken!
+          accessToken
         )) as NotificationType;
-        const userResponse = (await getUser(accessToken!)) as UserType;
-        setLoading(false);
+        const userResponse = (await getUser(accessToken)) as UserType;
         if (!settingResponse || !notificationResponse || !userResponse) return;
         setSettings(settingResponse);
         setNotificationState(notificationResponse);
         setUser(userResponse);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching settings:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchSettings();
-  }, []);
+  }, [accessToken]);
 
   if (loading) return <Loader />;
   return (

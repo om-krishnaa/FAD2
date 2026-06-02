@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: JSX.Element;
@@ -11,6 +12,10 @@ const ProtectedRoute = ({
   checkAuth,
   redirectPath,
 }: ProtectedRouteProps) => {
+  const { isAuthLoading } = useAuth();
+
+  if (isAuthLoading) return null;
+
   return checkAuth() ? children : <Navigate to={redirectPath} replace />;
 };
 

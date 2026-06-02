@@ -360,25 +360,26 @@ export default function UserDashboard() {
   }, [watchedAds, mediaList]);
 
   useEffect(() => {
+    if (!accessToken) return;
+    
     const fetchUserDetails = async () => {
-      setLoading(true);
-      const res = (await getUser(accessToken!)) as User;
-      setLoading(false);
-      if (!res) {
-        toast.error('Something went wrong. Please try again.');
-        return;
+      try {
+        setLoading(true);
+        const res = (await getUser(accessToken)) as User;
+        if (!res) {
+          toast.error('Something went wrong. Please try again.');
+          return;
+        }
+        setUserDetails(res);
+      } catch (error) {
+        console.error('Error fetching user details:', error);
+        toast.error('Failed to load user details. Please try again.');
+      } finally {
+        setLoading(false);
       }
-      setUserDetails((prevCount) => {
-        if (!prevCount) return prevCount;
-        return {
-          ...prevCount,
-          ads_watched_count: prevCount.ads_watched_count + 1,
-        };
-      });
-      setUserDetails(res);
     };
     fetchUserDetails();
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     return () => {
@@ -396,21 +397,20 @@ export default function UserDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchSettings = async () => {
       try {
-        setLoading(true);
-        const response = (await getSettings(accessToken!)) as SystemSettings;
-        setLoading(false);
+        const response = (await getSettings(accessToken)) as SystemSettings;
         if (!response) return;
         setSettings(response);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching settings:', error);
+        toast.error('Failed to load settings.');
       }
     };
     fetchSettings();
-  }, []);
-
-  console.log(settings);
+  }, [accessToken]);
 
   useEffect(() => {
     const currentMedia = mediaList && mediaList[currentMediaIndex];
@@ -442,28 +442,42 @@ export default function UserDashboard() {
   }, [currentMediaIndex, mediaList]);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchAds = async () => {
-      const res = (await getAds(accessToken!)) as Ad[];
-      if (!res) {
-        toast.error('Something went wrong. Please try again.');
-        return;
+      try {
+        const res = (await getAds(accessToken)) as Ad[];
+        if (!res) {
+          toast.error('Something went wrong. Please try again.');
+          return;
+        }
+        setMediaList(res);
+      } catch (error) {
+        console.error('Error fetching ads:', error);
+        toast.error('Failed to load ads. Please try again.');
       }
-      setMediaList(res);
     };
     fetchAds();
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchReferrals = async () => {
-      const res = (await getMyReferrals(accessToken!)) as Referral[];
-      if (!res) {
-        toast.error('Something went wrong. Please try again.');
-        return;
+      try {
+        const res = (await getMyReferrals(accessToken)) as Referral[];
+        if (!res) {
+          toast.error('Something went wrong. Please try again.');
+          return;
+        }
+        setReferrals(res);
+      } catch (error) {
+        console.error('Error fetching referrals:', error);
+        toast.error('Failed to load referrals. Please try again.');
       }
-      setReferrals(res);
     };
     fetchReferrals();
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     setFilteredAds(filterAds(adFilter));

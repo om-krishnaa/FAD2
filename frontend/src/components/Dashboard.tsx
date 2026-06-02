@@ -57,21 +57,25 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
         const response = (await getDashboardAnalytics(
-          accessToken!
+          accessToken
         )) as DashboardStats;
-        setLoading(false);
         if (!response) return;
         setAnalytics(response);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching dashboard analytics:', error);
+        setAnalytics(null);
+      } finally {
+        setLoading(false);
       }
     };
     fetchAnalytics();
-  }, []);
+  }, [accessToken]);
 
   if (loading) {
     return <Loader />;

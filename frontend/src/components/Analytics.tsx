@@ -69,22 +69,26 @@ const Analytics = () => {
   ];
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
         const response = (await getAnalytics(
           timeframe,
-          accessToken!
+          accessToken
         )) as AnalyticsType;
-        setLoading(false);
         if (!response) return;
         setAnalytics(response);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching analytics:', error);
+        setAnalytics(null);
+      } finally {
+        setLoading(false);
       }
     };
     fetchAnalytics();
-  }, [timeframe]);
+  }, [timeframe, accessToken]);
 
   if (loading) return <Loader />;
 

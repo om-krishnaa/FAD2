@@ -175,9 +175,11 @@ const Security = () => {
   };
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchSettings = async () => {
       try {
-        const response = (await getSettings(accessToken!)) as SystemSettings;
+        const response = (await getSettings(accessToken)) as SystemSettings;
         if (!response) return;
         setSettings({
           daily_ad_limit: response.daily_ad_limit,
@@ -190,26 +192,28 @@ const Security = () => {
               : false,
         });
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching settings:', error);
       }
     };
     fetchSettings();
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
+    if (!accessToken) return;
+
     const fetchBlockedUsers = async () => {
       try {
-        const response = (await getBlockedUsers(accessToken!)) as {
+        const response = (await getBlockedUsers(accessToken)) as {
           data: BlockedUser[];
         };
         if (!response) return;
         setBlockedUsers(response.data);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching blocked users:', error);
       }
     };
     fetchBlockedUsers();
-  }, []);
+  }, [accessToken]);
 
   return (
     <div className="p-8 bg-white dark:bg-gray-900">

@@ -345,10 +345,7 @@ export class Database {
       "SELECT daily_ad_limit FROM system_settings LIMIT 1"
     );
 
-    if ((settingsRows as any[]).length === 0)
-      throw new Error("System settings not found");
-
-    const systemSettings = (settingsRows as any[])[0];
+    const systemSettings = (settingsRows as any[])[0] || { daily_ad_limit: 10 };
     const maxAdsPerDay = parseInt(systemSettings.daily_ad_limit, 10) || 10;
 
     const [rows] = await pool.execute(
@@ -530,8 +527,9 @@ export class Database {
     const systemSettings = (settingsRows as any[])[0];
     const earnings = parseFloat(systemSettings.cost_per_view);
 
-    await pool.execute(
-      `INSERT INTO user_ad_views 
+    // 1. Use INSERT IGNORE to safely handle daily duplicate views without crashing
+    const [insertResult] = await pool.execute(
+      `INSERT IGNORE INTO user_ad_views 
        (user_id, campaign_id, view_duration, full_duration, completion_percentage, device_type, ip_address, is_completed, earnings, view_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE())`,
       [
@@ -547,6 +545,15 @@ export class Database {
       ]
     );
 
+    // 2. Check if the row was actually inserted. If affectedRows is 0, it's a duplicate!
+    const isDuplicate = (insertResult as any).affectedRows === 0;
+
+    if (isDuplicate) {
+      // Return early with 0 earnings so the frontend knows it was a duplicate, but doesn't loop or freeze
+      return { earnings: 0, completion_percentage, is_completed, message: "Ad already viewed today" };
+    }
+
+    // 3. Only update user balances if this is a fresh, non-duplicate view
     await pool.execute(
       `UPDATE users 
        SET total_earned = total_earned + ?, 
