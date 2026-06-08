@@ -17,7 +17,7 @@ export default function SectionCard({ title, children }: SectionCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    padding: 18,
+    padding: 14,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.18)',

@@ -1,88 +1,59 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { VideoView, useVideoPlayer } from 'expo-video';
 
+import { getAds } from '@/actions/ads';
+import { getMyReferrals } from '@/actions/referrals';
+import { getUser } from '@/actions/users';
 import EmptyState from '@/common/EmptyState';
 import Loader from '@/common/Loader';
 import Screen from '@/common/Screen';
 import SectionCard from '@/components/dashboard/SectionCard';
 import StatCard from '@/components/dashboard/StatCard';
-import { getDashboardAnalytics } from '@/actions/analytics';
-import { DashboardStats } from '@/types';
-
-type SavedUser = {
-  id?: number;
-  name?: string;
-  email?: string;
-  role?: 'user' | 'admin' | 'super_admin';
-};
-
-const rotatingWords = ['happening', 'growing', 'advancing', 'exciting'];
+import { Ad, Referral, User } from '@/types';
 
 export default function DashboardScreen() {
-  const [user, setUser] = useState<SavedUser | null>(null);
-  const [analytics, setAnalytics] = useState<DashboardStats | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [availableAds, setAvailableAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(false);
-  const [wordIndex, setWordIndex] = useState(0);
-  const videoPlayer = useVideoPlayer(
-  require('@/assets/videos/hospital.mp4'),
-  (player) => {
-    player.loop = true;
-    player.muted = true;
+
+  async function loadDashboard() {
+    const token = await SecureStore.getItemAsync('fad_token');
+
+    if (!token) return;
+
+    try {
+      setLoading(true);
+
+      const [userResponse, referralsResponse, adsResponse] = await Promise.all([
+        getUser(token),
+        getMyReferrals(token),
+        getAds(token),
+      ]);
+
+      setUser(userResponse);
+      setReferrals(referralsResponse || []);
+      setAvailableAds(adsResponse || []);
+    } catch (error) {
+      console.error('Error loading user dashboard:', error);
+      Alert.alert('Error', 'Could not load dashboard.');
+    } finally {
+      setLoading(false);
+    }
   }
-);
+
   useFocusEffect(
     useCallback(() => {
-      let mounted = true;
-      const interval = setInterval(() => {
-        setWordIndex((prev) => (prev + 1) % rotatingWords.length);
-      }, 2500);
-
-      async function loadDashboard() {
-        const savedUser = await SecureStore.getItemAsync('fad_user');
-        const token = await SecureStore.getItemAsync('fad_token');
-
-        if (savedUser && mounted) {
-          setUser(JSON.parse(savedUser));
-        }
-
-        if (!token) return;
-
-        try {
-          setLoading(true);
-          const response = await getDashboardAnalytics(token);
-
-          if (mounted) {
-            setAnalytics(response);
-          }
-        } catch (error) {
-          console.error('Error fetching dashboard analytics:', error);
-          if (mounted) {
-            setAnalytics(null);
-          }
-        } finally {
-          if (mounted) {
-            setLoading(false);
-          }
-        }
-      }
-
       loadDashboard();
-
-      return () => {
-        mounted = false;
-        clearInterval(interval);
-      };
     }, [])
   );
 
-  const isSuperAdmin = user?.role === 'super_admin';
-
   if (loading) {
     return (
-      <Screen title="Dashboard" subtitle="Loading dashboard data...">
+      <Screen title="Dashboard" subtitle="Loading your account...">
         <Loader message="Loading dashboard..." />
       </Screen>
     );
@@ -90,166 +61,148 @@ export default function DashboardScreen() {
 
   return (
     <Screen title="Dashboard" subtitle="Welcome back to FAD">
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>Welcome back!</Text>
-        <Text style={styles.heroText}>
-          Here's what's{' '}
-          <Text style={styles.rotatingWord}>{rotatingWords[wordIndex]}</Text>{' '}
-          with FAD today.
+      <View style={styles.walletCard}>
+        <Text style={styles.walletLabel}>Available Balance</Text>
+        <Text style={styles.walletValue}>Rs {user?.current_balance || '0'}</Text>
+        <Text style={styles.walletText}>
+          Watch ads, invite referrals, and request payouts from Payments.
         </Text>
       </View>
-      <View style={styles.videoCard}>
-  <VideoView
-    player={videoPlayer}
-    style={styles.video}
-    nativeControls
-    contentFit="cover"
-  />
-</View>
 
       <View style={styles.statsGrid}>
-        {isSuperAdmin ? (
-          <StatCard
-            title="Total Users"
-            value={analytics?.totalUsers ?? '-'}
-            accent="blue"
-          />
-        ) : null}
-
         <StatCard
-          title="Active Ads"
-          value={analytics?.activeAds ?? '-'}
+          title="Total Earned"
+          value={`Rs ${user?.total_earned || '0'}`}
           accent="green"
         />
-
         <StatCard
-          title={isSuperAdmin ? 'Total Revenue' : 'Total Budget'}
-          value={analytics ? `Rs ${analytics.totalRevenue}` : '-'}
+          title="Ads Watched"
+          value={user?.ads_watched_count || 0}
+          accent="blue"
+        />
+        <StatCard
+          title="Referrals"
+          value={referrals.length}
           accent="purple"
         />
-
         <StatCard
-          title="Ad Views Today"
-          value={analytics?.adViewsToday ?? '-'}
+          title="Status"
+          value={user?.status || 'active'}
           accent="orange"
         />
       </View>
 
-      <SectionCard title="Recent Ad Performance">
-        {analytics?.recentAds?.length ? (
-          analytics.recentAds.map((ad) => {
-            const budget = Number(ad.budget || 0);
-            const spent = Number(ad.spent_amount || 0);
-            const profit = budget - spent;
-
-            return (
-              <View key={ad.id} style={styles.adItem}>
-                <View style={styles.adHeader}>
-                  <Text style={styles.adTitle}>{ad.title}</Text>
-                  <Text
-                    style={[
-                      styles.statusBadge,
-                      ad.status === 'active' && styles.activeBadge,
-                    ]}
-                  >
-                    {ad.status}
-                  </Text>
-                </View>
-
-                <View style={styles.adStatsGrid}>
-                  <Text style={styles.adStat}>
-                    Views: <Text style={styles.adStatValue}>{ad.actual_views || 0}</Text>
-                  </Text>
-                  <Text style={styles.adStat}>
-                    Budget: <Text style={styles.adStatValue}>Rs {ad.budget || 0}</Text>
-                  </Text>
-                  <Text style={styles.adStat}>
-                    Paid: <Text style={styles.adStatValue}>Rs {ad.spent_amount || 0}</Text>
-                  </Text>
-                  <Text style={styles.adStat}>
-                    Profit: <Text style={styles.profitValue}>Rs {profit || 0}</Text>
-                  </Text>
-                </View>
+      <SectionCard title="Available Ads">
+        {availableAds.length ? (
+          availableAds.slice(0, 3).map((ad) => (
+            <View key={ad.id} style={styles.adCard}>
+              <View style={styles.adHeader}>
+                <Text style={styles.adTitle}>{ad.title}</Text>
+                <Text style={styles.adType}>{ad.ad_type}</Text>
               </View>
-            );
-          })
+
+              <Text style={styles.adDescription} numberOfLines={2}>
+                {ad.description || 'Watch this ad and earn rewards.'}
+              </Text>
+
+              <View style={styles.adMetaRow}>
+                <Text style={styles.adMeta}>
+                  Views:{' '}
+                  <Text style={styles.adMetaValue}>
+                    {ad.actual_views || 0}
+                  </Text>
+                </Text>
+
+                <Text style={styles.adMeta}>
+                  Reward:{' '}
+                  <Text style={styles.adMetaValue}>
+                    Rs {(ad as any).earnings_per_view || (ad as any).cost_per_view || 0}
+                  </Text>
+                </Text>
+              </View>
+            </View>
+          ))
         ) : (
-          <EmptyState
-            title="No recent ads yet"
-            message="Recent ad performance will appear here once ads are active."
-          />
+<View style={styles.gameCard}>
+  <Text style={styles.gameTitle}>No Ads Left for Today</Text>
+  <Text style={styles.gameSubtitle}>Play while new ads become available.</Text>
+
+  <View style={styles.gameFrame}>
+    <WebView
+      source={{ uri: 'https://funhtml5games.com?embed=flappy' }}
+      style={styles.gameWebView}
+      javaScriptEnabled
+      domStorageEnabled
+      startInLoadingState
+      scalesPageToFit
+      scrollEnabled={false}
+      nestedScrollEnabled={false}
+      automaticallyAdjustContentInsets={false}
+      setBuiltInZoomControls={false}
+      setDisplayZoomControls={false}
+    />
+  </View>
+</View>
         )}
       </SectionCard>
 
-      {isSuperAdmin ? (
-        <View style={styles.systemSection}>
-          <SectionCard title="System Status">
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, styles.greenDot]} />
-              <Text style={styles.statusTitle}>Mobile App</Text>
-              <Text style={styles.onlineText}>Online</Text>
-            </View>
+      {/* <View style={styles.sectionGap}>
+        <SectionCard title="Referral Activity">
+          {referrals.length ? (
+            referrals.slice(0, 5).map((referral) => (
+              <View key={referral.id} style={styles.referralRow}>
+                <View>
+                  <Text style={styles.referralName}>
+                    {referral.new_user?.name ||
+                      referral.new_user?.email ||
+                      'New User'}
+                  </Text>
+                  <Text style={styles.referralDate}>
+                    {new Date(referral.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
 
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, styles.redDot]} />
-              <Text style={styles.statusTitle}>Backend API</Text>
-              <Text style={styles.offlineText}>Not Made</Text>
-            </View>
-
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, styles.greenDot]} />
-              <Text style={styles.statusTitle}>Payment System</Text>
-              <Text style={styles.onlineText}>Online</Text>
-            </View>
-
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, styles.yellowDot]} />
-              <Text style={styles.statusTitle}>Database</Text>
-              <Text style={styles.warningText}>Maintenance</Text>
-            </View>
-          </SectionCard>
-        </View>
-      ) : null}
+                <Text style={styles.referralAmount}>
+                  Rs {referral.earned_amount}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <EmptyState
+              title="No referrals yet"
+              message="Your referral activity will appear here."
+            />
+          )}
+        </SectionCard>
+      </View> */}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  videoCard: {
-  height: 190,
-  marginBottom: 18,
-  overflow: 'hidden',
-  borderRadius: 16,
-  borderWidth: 1,
-  borderColor: 'rgba(255, 255, 255, 0.18)',
-  backgroundColor: '#000000',
-},
-video: {
-  width: '100%',
-  height: '100%',
-},
-  heroCard: {
-    padding: 18,
-    borderRadius: 16,
+  walletCard: {
+    padding: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(96, 165, 250, 0.35)',
-    backgroundColor: 'rgba(37, 99, 235, 0.16)',
+    backgroundColor: 'rgba(37, 99, 235, 0.22)',
   },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#ffffff',
+  walletLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#dbeafe',
   },
-  heroText: {
+  walletValue: {
     marginTop: 8,
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#d1d5db',
-  },
-  rotatingWord: {
-    color: '#ffffff',
+    fontSize: 36,
     fontWeight: '900',
-    backgroundColor: '#2563eb',
+    color: '#ffffff',
+  },
+  walletText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#d1d5db',
   },
   statsGrid: {
     marginTop: 22,
@@ -258,14 +211,12 @@ video: {
     flexWrap: 'wrap',
     gap: 12,
   },
-  systemSection: {
+  sectionGap: {
     marginTop: 22,
   },
-  adItem: {
+  adCard: {
     padding: 14,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
     backgroundColor: 'rgba(17, 24, 39, 0.38)',
   },
   adHeader: {
@@ -275,87 +226,96 @@ video: {
   },
   adTitle: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '900',
     color: '#ffffff',
   },
-  statusBadge: {
-    alignSelf: 'flex-start',
+  adType: {
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 999,
     overflow: 'hidden',
-    backgroundColor: 'rgba(148, 163, 184, 0.18)',
+    backgroundColor: 'rgba(96, 165, 250, 0.18)',
     fontSize: 12,
-    fontWeight: '800',
-    color: '#d1d5db',
+    fontWeight: '900',
+    color: '#60a5fa',
     textTransform: 'capitalize',
   },
-  activeBadge: {
-    backgroundColor: 'rgba(34, 197, 94, 0.18)',
-    color: '#4ade80',
+  adDescription: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#d1d5db',
   },
-  adStatsGrid: {
+  adMetaRow: {
     marginTop: 12,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  adStat: {
-    width: '47%',
+  adMeta: {
     fontSize: 13,
     color: '#d1d5db',
   },
-  adStatValue: {
+  adMetaValue: {
     fontWeight: '900',
     color: '#ffffff',
   },
-  profitValue: {
-    fontWeight: '900',
-    color: '#4ade80',
-  },
-  statusRow: {
-    minHeight: 48,
-    padding: 12,
+gameCard: {
+  marginHorizontal: -18,
+  padding: 12,
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: 'rgba(96, 165, 250, 0.32)',
+  backgroundColor: '#bfdbfe',
+},
+gameTitle: {
+  fontSize: 16,
+  fontWeight: '900',
+  color: '#111827',
+  textAlign: 'center',
+},
+gameSubtitle: {
+  marginTop: 4,
+  marginBottom: 10,
+  fontSize: 13,
+  fontWeight: '700',
+  color: '#374151',
+  textAlign: 'center',
+},
+gameFrame: {
+  width: '100%',
+  height: 520,
+  overflow: 'hidden',
+  borderRadius: 12,
+  backgroundColor: '#bfdbfe',
+},
+gameWebView: {
+  width: '100%',
+  height: 520,
+  backgroundColor: '#bfdbfe',
+},
+  referralRow: {
+    padding: 14,
     borderRadius: 12,
     backgroundColor: 'rgba(17, 24, 39, 0.38)',
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  greenDot: {
-    backgroundColor: '#22c55e',
-  },
-  redDot: {
-    backgroundColor: '#ef4444',
-  },
-  yellowDot: {
-    backgroundColor: '#eab308',
-  },
-  statusTitle: {
-    flex: 1,
-    fontSize: 14,
+  referralName: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#ffffff',
   },
-  onlineText: {
+  referralDate: {
+    marginTop: 4,
     fontSize: 13,
-    fontWeight: '800',
+    color: '#d1d5db',
+  },
+  referralAmount: {
+    fontSize: 15,
+    fontWeight: '900',
     color: '#4ade80',
-  },
-  offlineText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#f87171',
-  },
-  warningText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#facc15',
   },
 });

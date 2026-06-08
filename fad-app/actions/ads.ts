@@ -66,3 +66,22 @@ export async function createViewAd(viewAd: ViewAdType, token: string) {
     body: JSON.stringify(viewAd),
   });
 }
+export async function createAds(formData: FormData, token: string) {
+  return apiRequest('/ads/create', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+}
+
+export async function updateAds(id: number, formData: FormData, token: string) {
+  return apiRequest(`/ads/${id}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+}
