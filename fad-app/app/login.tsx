@@ -1,6 +1,16 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { apiRequest } from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
 
@@ -42,67 +52,76 @@ export default function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.logo}>FAD</Text>
-        <Text style={styles.title}>FAD Admin Login</Text>
-        <Text style={styles.subtitle}>Followers of Advertisement</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.logo}>FAD</Text>
+          <Text style={styles.title}>FAD Admin Login</Text>
+          <Text style={styles.subtitle}>Followers of Advertisement</Text>
 
-        <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            placeholder="Enter your email"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-            placeholderTextColor="#94a3b8"
-          />
-        </View>
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+                style={styles.input}
+                placeholderTextColor="#94a3b8"
+              />
+            </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            placeholder="Enter your password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-            placeholderTextColor="#94a3b8"
-          />
-        </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                placeholder="Enter your password"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                style={styles.input}
+                placeholderTextColor="#94a3b8"
+              />
+            </View>
 
-        <Pressable style={styles.button} onPress={handleLogin} disabled={loading}>
-          <Text style={styles.buttonText}>
-            {loading ? 'Logging in...' : 'Login'}
-          </Text>
-        </Pressable>
+            <Pressable style={styles.button} onPress={handleLogin} disabled={loading}>
+              <Text style={styles.buttonText}>
+                {loading ? 'Logging in...' : 'Login'}
+              </Text>
+            </Pressable>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don&apos;t have an account?</Text>
-          <Link href="/signup" style={styles.link}>
-            Sign up
-          </Link>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don&apos;t have an account?</Text>
+              <Link href="/signup" style={styles.link}>
+                Sign up
+              </Link>
+            </View>
+            <View>
+              <Link href="/forgot-password" style={styles.forgotLink}>
+                Forgot password?
+              </Link>
+            </View>
+          </View>
         </View>
-        <View>
-          <Link href="/forgot-password" style={styles.forgotLink}>
-            Forgot password?
-          </Link>
-        </View>
-        </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#111827',
+  },
+  content: {
+    flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
-    backgroundColor: '#111827',
   },
   card: {
     padding: 28,

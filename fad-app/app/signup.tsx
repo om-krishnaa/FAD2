@@ -139,6 +139,13 @@ export default function SignupScreen() {
             </Pressable>
 
             <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have a code?</Text>
+              <Link href="/verify-email" style={styles.link}>
+                Verify Email
+              </Link>
+            </View>
+
+            <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account?</Text>
               <Link href="/login" style={styles.link}>
                 Login

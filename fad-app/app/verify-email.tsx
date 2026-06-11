@@ -1,6 +1,16 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { apiRequest } from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
 
@@ -10,6 +20,17 @@ export default function VerifyEmailScreen() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   async function handleVerifyEmail() {
     if (!email || !code) {
@@ -65,6 +86,7 @@ export default function VerifyEmailScreen() {
       }
 
       Alert.alert('Code sent', data.message || 'New verification code sent.');
+      setResendTimer(60); // Start 1 minute timer
     } catch {
       Alert.alert('Error', 'Could not connect to server.');
     } finally {
@@ -73,16 +95,21 @@ export default function VerifyEmailScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.logo}>FAD</Text>
-        <Text style={styles.title}>Verify Email</Text>
-        <Text style={styles.subtitle}>
-          Enter the verification code sent to your email
-        </Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.logo}>FAD</Text>
+          <Text style={styles.title}>Verify Email</Text>
+          <Text style={styles.subtitle}>
+            Enter the verification code sent to your email
+          </Text>
 
-        <View style={styles.form}>
-        <View style={styles.inputGroup}>
+          <View style={styles.form}>
+          <View style={styles.inputGroup}>
           <Text style={styles.label}>Email</Text>
           <TextInput
             placeholder="Enter your email"
@@ -114,9 +141,12 @@ export default function VerifyEmailScreen() {
           </Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryButton} onPress={handleResendCode} disabled={resending}>
-          <Text style={styles.secondaryButtonText}>
-            {resending ? 'Sending...' : 'Resend Code'}
+        <Pressable
+          style={[styles.secondaryButton, resendTimer > 0 && styles.secondaryButtonDisabled]}
+          onPress={handleResendCode}
+          disabled={resending || resendTimer > 0}>
+          <Text style={[styles.secondaryButtonText, resendTimer > 0 && styles.secondaryButtonTextDisabled]}>
+            {resending ? 'Sending...' : resendTimer > 0 ? `Resend Code (${resendTimer}s)` : 'Resend Code'}
           </Text>
         </Pressable>
 
@@ -126,18 +156,22 @@ export default function VerifyEmailScreen() {
             Login
           </Link>
         </View>
+          </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#111827',
+  },
+  content: {
+    flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
-    backgroundColor: '#111827',
   },
   card: {
     padding: 28,
@@ -209,10 +243,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3b82f6',
   },
+  secondaryButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: 'rgba(107, 114, 128, 0.2)',
+    borderColor: '#6b7280',
+  },
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '800',
     color: '#93c5fd',
+  },
+  secondaryButtonTextDisabled: {
+    color: '#9ca3af',
   },
   footer: {
     marginTop: 8,

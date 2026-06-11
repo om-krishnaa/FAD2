@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Database } from "../config/db";
+import { EsewaPayoutService, KhaltiPayoutService } from "../services/payout.service";
 
 export const getAllPayments = async (req: Request, res: Response) => {
   try {
@@ -11,7 +12,14 @@ export const getAllPayments = async (req: Request, res: Response) => {
 };
 
 export const requestPayment = async (req: Request, res: Response) => {
-  const { payment_method } = req.body;
+  const { payment_method, payment_identifier } = req.body;
+
+  if (!payment_identifier) {
+    return res.json({
+      success: false,
+      message: `${payment_method === 'esewa' ? 'eSewa phone number' : 'Khalti phone/email'} is required`,
+    });
+  }
 
   const user = await Database.getUserById(req.user!.id);
 
@@ -26,16 +34,69 @@ export const requestPayment = async (req: Request, res: Response) => {
       message: "Minimum amount is " + minimum_withdrawal,
     });
   try {
-    const payments = await Database.requestPayment(
+    // Create transaction record
+    const transactionId = await Database.requestPayment(
       req.user!.id,
-      current_balance,
+      Number(current_balance),
       payment_method
     );
-    if (!payments) {
+    if (!transactionId) {
       return res.json({ success: false, message: "Payment request failed" });
     }
-    res.json({ success: true, message: "Payment request successful" });
+
+    // Initiate actual payout based on payment method
+    let payoutResult: any;
+    if (payment_method === "esewa") {
+      const esewaService = new EsewaPayoutService();
+      payoutResult = await esewaService.initiatePayout(
+        payment_identifier,
+        Number(current_balance),
+        `TXN-${transactionId}-${Date.now()}`
+      );
+    } else if (payment_method === "khalti") {
+      const khaltiService = new KhaltiPayoutService();
+      payoutResult = await khaltiService.initiatePayout(
+        payment_identifier,
+        Number(current_balance),
+        `TXN-${transactionId}-${Date.now()}`
+      );
+    }
+
+    // Update transaction with payout details
+    if (payoutResult?.success) {
+      await Database.updateTransaction(transactionId.toString(), {
+        status: "completed",
+        payment_reference: payoutResult.transactionCode,
+        description: `Payout completed via ${payment_method}`,
+        processed_by: req.user!.id,
+      });
+
+      return res.json({
+        success: true,
+        message: `Payout of Rs ${current_balance} sent to your ${payment_method} account successfully`,
+        transactionId,
+        requestedAmount: Number(current_balance),
+        paymentReference: payoutResult.transactionCode,
+        status: "completed",
+      });
+    } else {
+      // Update transaction as failed
+      await Database.updateTransaction(transactionId.toString(), {
+        status: "failed",
+        failure_reason: payoutResult?.message || "Payout initiation failed",
+        processed_by: req.user!.id,
+      });
+
+      return res.json({
+        success: false,
+        message: `Payout failed: ${payoutResult?.message || 'Unknown error'}`,
+        transactionId,
+        requestedAmount: Number(current_balance),
+        status: "failed",
+      });
+    }
   } catch (error: any) {
+    console.error("Payment Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

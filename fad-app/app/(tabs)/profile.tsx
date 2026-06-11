@@ -1,6 +1,14 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import * as SecureStore from 'expo-secure-store';
 
 import AppButton from '@/common/AppButton';
@@ -63,6 +71,25 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  }
+
+  async function handleCopyReferralLink() {
+    const referralLink = `http://192.168.1.80:5173?ref=${user?.id}`;
+    await Clipboard.setStringAsync(referralLink);
+    Alert.alert('Success', 'Referral link copied to clipboard!');
+  }
+
+  async function handleShareReferralLink() {
+    const referralLink = `http://192.168.1.80:5173?ref=${user?.id}`;
+    try {
+      await Share.share({
+        message: `Join me on FAD and start earning! Use my referral link: ${referralLink}`,
+        url: referralLink,
+        title: 'Join FAD',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Could not share referral link.');
+    }
   }
 
   if (loading) {
@@ -139,6 +166,35 @@ export default function ProfileScreen() {
             message="Your referral history will appear here."
           />
         )}
+      </SectionCard>
+
+      <SectionCard title="Your Referral Link">
+        <View style={styles.referralLinkContainer}>
+          <Text style={styles.referralLinkLabel}>Share this link to earn rewards</Text>
+          <View style={styles.referralLinkBox}>
+            <Text
+              style={styles.referralLinkText}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              http://192.168.1.80:5173?ref={user?.id}
+            </Text>
+          </View>
+          <View style={styles.referralButtonRow}>
+            <Pressable
+              style={[styles.referralButton, styles.copyButton]}
+              onPress={handleCopyReferralLink}
+            >
+              <Text style={styles.buttonText}>Copy Link</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.referralButton, styles.shareButton]}
+              onPress={handleShareReferralLink}
+            >
+              <Text style={styles.buttonText}>Share</Text>
+            </Pressable>
+          </View>
+        </View>
       </SectionCard>
 
       <AppButton
@@ -261,5 +317,48 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     marginTop: 26,
+  },
+  referralLinkContainer: {
+    gap: 12,
+  },
+  referralLinkLabel: {
+    fontSize: 13,
+    color: '#d1d5db',
+    fontWeight: '600',
+  },
+  referralLinkBox: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.35)',
+  },
+  referralLinkText: {
+    fontSize: 12,
+    color: '#60a5fa',
+    fontFamily: 'monospace',
+  },
+  referralButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  referralButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copyButton: {
+    backgroundColor: '#2563eb',
+  },
+  shareButton: {
+    backgroundColor: '#7c3aed',
+  },
+  buttonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#ffffff',
   },
 });

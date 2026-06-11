@@ -10,12 +10,12 @@ export async function getPayments(token: string): Promise<Payment[]> {
   });
 }
 
-export async function requestPayment(token: string, payment_method: string) {
+export async function requestPayment(token: string, payment_method: string, payment_identifier?: string) {
   return apiRequest('/payment', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ payment_method }),
+    body: JSON.stringify({ payment_method, payment_identifier }),
   });
 }

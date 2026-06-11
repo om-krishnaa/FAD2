@@ -9,8 +9,9 @@ import Loader from '@/common/Loader';
 import Screen from '@/common/Screen';
 import SectionCard from '@/components/dashboard/SectionCard';
 import { getPayments, requestPayment } from '@/actions/payments';
+import { getSettings } from '@/actions/settings';
 import { getUser } from '@/actions/users';
-import { Payment, User } from '@/types';
+import { Payment, SystemSettings, User } from '@/types';
 
 export default function PaymentsScreen() {
   const [user, setUser] = useState<User | null>(null);
@@ -18,6 +19,9 @@ export default function PaymentsScreen() {
   const [paymentMethod, setPaymentMethod] = useState('esewa');
   const [loading, setLoading] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [minimumWithdrawal, setMinimumWithdrawal] = useState(0);
+  const [paymentIdentifier, setPaymentIdentifier] = useState('');
+  const [showIdentifierInput, setShowIdentifierInput] = useState(false);
 
   async function loadPayments() {
     const token = await SecureStore.getItemAsync('fad_token');
@@ -27,13 +31,15 @@ export default function PaymentsScreen() {
     try {
       setLoading(true);
 
-      const [userResponse, paymentsResponse] = await Promise.all([
+      const [userResponse, paymentsResponse, settingsResponse] = await Promise.all([
         getUser(token),
         getPayments(token),
+        getSettings(token),
       ]);
 
       setUser(userResponse);
       setPayments(paymentsResponse || []);
+      setMinimumWithdrawal(Number(settingsResponse?.minimum_withdrawal || 0));
     } catch (error) {
       console.error('Error loading payments:', error);
       Alert.alert('Error', 'Could not load payments.');
@@ -53,34 +59,46 @@ export default function PaymentsScreen() {
 
     if (!token) return;
 
+    setShowIdentifierInput(true);
+  }
+
+  async function handleConfirmPayout() {
+    const token = await SecureStore.getItemAsync('fad_token');
+
+    if (!token || !paymentIdentifier) {
+      Alert.alert('Error', paymentMethod === 'esewa' ? 'Enter eSewa phone number' : 'Enter Khalti phone or email');
+      return;
+    }
+
     Alert.alert(
-      'Request Payment',
-      `Request payout using ${paymentMethod}?`,
+      'Confirm Payout',
+      `Send Rs ${user?.current_balance || 0} to your ${paymentMethod} account?`,
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Request',
+          text: 'Confirm',
           onPress: async () => {
             try {
               setRequesting(true);
-              const response = await requestPayment(token, paymentMethod);
+              const response = await requestPayment(token, paymentMethod, paymentIdentifier);
 
               if (!response?.success) {
-                Alert.alert(
-                  'Request failed',
-                  response?.message || 'Payment request failed.'
-                );
+                Alert.alert('Failed', response?.message || 'Payout failed.');
                 return;
               }
 
-              Alert.alert('Success', response.message || 'Payment requested.');
+              Alert.alert(
+                'Success',
+                response.paymentReference
+                  ? `Payout sent! Reference: ${response.paymentReference}`
+                  : response.message || 'Payout successful.'
+              );
+              setPaymentIdentifier('');
+              setShowIdentifierInput(false);
               await loadPayments();
             } catch (error) {
               console.error('Error requesting payment:', error);
-              Alert.alert('Error', 'Could not request payment.');
+              Alert.alert('Error', 'Could not complete payout.');
             } finally {
               setRequesting(false);
             }
@@ -98,14 +116,22 @@ export default function PaymentsScreen() {
     );
   }
 
+  const balance = Number(user?.current_balance || 0);
+  const canRequestPayment = balance > 0 && balance >= minimumWithdrawal;
+
   return (
     <Screen title="Payments" subtitle="Track your earnings and withdrawals.">
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Available Balance</Text>
         <Text style={styles.balanceValue}>Rs {user?.current_balance || '0'}</Text>
         <Text style={styles.balanceText}>
-          Request a payout once your balance is eligible.
+          Minimum withdrawal: Rs {minimumWithdrawal.toLocaleString()}. Request will use your full balance.
         </Text>
+        {!canRequestPayment && (
+          <Text style={styles.warningText}>
+            You need Rs {Math.max(minimumWithdrawal - balance, 0)} more to request a payout.
+          </Text>
+        )}
       </View>
 
       <View style={styles.summaryGrid}>
@@ -144,10 +170,51 @@ export default function PaymentsScreen() {
         </View>
 
         <AppButton
-          title="Request Payout"
+          title={
+            canRequestPayment
+              ? 'Request Payout'
+              : `Need Rs ${Math.max(minimumWithdrawal - balance, 0)} more`
+          }
           onPress={handleRequestPayment}
           loading={requesting}
+          disabled={!canRequestPayment}
         />
+
+        {showIdentifierInput && (
+          <View style={{ marginTop: 12 }}>
+            <Text style={styles.inputLabel}>
+              {paymentMethod === 'esewa' ? 'eSewa Phone' : 'Khalti Phone/Email'}
+            </Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder={
+                paymentMethod === 'esewa'
+                  ? 'Enter eSewa phone (10 digits)'
+                  : 'Enter Khalti phone or email'
+              }
+              value={paymentIdentifier}
+              onChangeText={setPaymentIdentifier}
+              placeholderTextColor="#999"
+            />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              <Pressable
+                style={[styles.button, { flex: 1, backgroundColor: '#ccc' }]}
+                onPress={() => {
+                  setShowIdentifierInput(false);
+                  setPaymentIdentifier('');
+                }}
+              >
+                <Text>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.button, { flex: 1, backgroundColor: '#0066cc' }]}
+                onPress={handleConfirmPayout}
+              >
+                <Text style={{ color: 'white' }}>Confirm</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
       </SectionCard>
 
       <View style={styles.sectionGap}>

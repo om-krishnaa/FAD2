@@ -908,13 +908,16 @@ export class Database {
     amount: number,
     payment_method: "esewa" | "khalti"
   ) {
-    const netAmount = amount * 0.77;
-
     const [result] = await pool.execute(
       `INSERT INTO transactions 
-    (user_id, type, amount, currency, payment_method, status)
-   VALUES (?, 'payout', ?, 'NPR', ?, 'pending')`,
-      [user_id, netAmount, payment_method]
+    (user_id, type, amount, currency, payment_method, status, description)
+   VALUES (?, 'payout', ?, 'NPR', ?, 'pending', ?)`,
+      [
+        user_id,
+        amount,
+        payment_method,
+        `Payout requested for Rs ${amount.toFixed(2)} via ${payment_method}`,
+      ]
     );
 
     const insertId = (result as any).insertId;

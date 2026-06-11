@@ -62,6 +62,9 @@ export default function UserDashboard() {
   const [settings, setSettings] = useState<null | SystemSettings>(null);
   const [viewDuration, setViewDuration] = useState(0);
   const [ipAddress, setIpAddress] = useState('');
+  const [paymentIdentifier, setPaymentIdentifier] = useState('');
+  const [showPaymentIdentifierInput, setShowPaymentIdentifierInput] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'esewa' | 'khalti' | null>(null);
   const [mediaList, setMediaList] = useState<Ad[] | null>(null);
   const [adFilter, setAdFilter] = useState<'all' | 'video' | 'image'>('all');
   const [filteredAds, setFilteredAds] = useState<Ad[]>([]);
@@ -79,26 +82,55 @@ export default function UserDashboard() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const referralLink = `${import.meta.env.VITE_FRONTEND_URL}?ref=${user?.id}`;
+  const referralLink = `${window.location.origin}?ref=${user?.id}`;
+  const currentBalance = Number(userDetails?.current_balance || 0);
+  const minimumWithdrawal = Number(settings?.minimum_withdrawal || 0);
+  const canRequestPayment = currentBalance > 0 && currentBalance >= minimumWithdrawal;
 
   const handleRequestPayment = async (payment_method: string) => {
+    setSelectedPaymentMethod(payment_method as 'esewa' | 'khalti');
+    setShowPaymentIdentifierInput(true);
+  };
+
+  const handleConfirmPayout = async () => {
+    if (!selectedPaymentMethod || !paymentIdentifier) {
+      toast.error(
+        selectedPaymentMethod === 'esewa'
+          ? 'Please enter your eSewa phone number'
+          : 'Please enter your Khalti phone or email'
+      );
+      return;
+    }
+
     try {
-      const res = (await requestPayment(accessToken!, payment_method)) as {
+      const res = (await requestPayment(accessToken!, selectedPaymentMethod, paymentIdentifier)) as {
         success: boolean;
         message: string;
+        requestedAmount?: number;
+        paymentReference?: string;
+        status?: string;
       };
-      if (!res.success)
-        return toast.error(res.message || 'Payment Request Failed.');
+      if (!res.success) return toast.error(res.message || 'Payout Failed.');
+
       setUserDetails((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
-          current_balance: (0).toString(),
+          current_balance: '0',
         };
       });
-      toast.success(res.message || 'Payment Request Successful.');
+
+      setShowPaymentIdentifierInput(false);
+      setPaymentIdentifier('');
+      setSelectedPaymentMethod(null);
+
+      toast.success(
+        res.paymentReference
+          ? `Payout successful! Reference: ${res.paymentReference}`
+          : res.message || 'Payout Successful.'
+      );
     } catch (error) {
-      toast.error('Payment Request Failed. Please try again.');
+      toast.error('Payout Failed. Please try again.');
     }
   };
 
@@ -1153,10 +1185,25 @@ export default function UserDashboard() {
             </div>
 
             <div className="space-y-3">
+              <p
+                className={`text-sm ${
+                  isDark ? 'text-slate-300' : 'text-slate-600'
+                }`}
+              >
+                Minimum withdrawal: Rs {minimumWithdrawal.toLocaleString()}
+              </p>
+              {!canRequestPayment && (
+                <p className="text-sm text-red-500">
+                  You need Rs {Math.max(minimumWithdrawal - currentBalance, 0)} more to request payout.
+                </p>
+              )}
               <button
                 onClick={() => handleRequestPayment('esewa')}
+                disabled={!canRequestPayment}
                 className={`w-full rounded-lg p-4 flex items-center gap-3 transition-all border ${
-                  isDark
+                  !canRequestPayment
+                    ? 'cursor-not-allowed opacity-60 '
+                    : isDark
                     ? 'bg-slate-700 border-slate-600 hover:bg-slate-600 text-white'
                     : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'
                 }`}
@@ -1166,14 +1213,74 @@ export default function UserDashboard() {
               </button>
               <button
                 onClick={() => handleRequestPayment('khalti')}
+                disabled={!canRequestPayment}
                 className={`w-full rounded-lg p-4 flex items-center gap-3 transition-all border ${
-                  isDark
+                  !canRequestPayment
+                    ? 'cursor-not-allowed opacity-60 '
+                    : isDark
                     ? 'bg-slate-700 border-slate-600 hover:bg-slate-600 text-white'
                     : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-900'
                 }`}
               >
                 <CreditCard className="w-5 h-5 text-purple-600" />
                 <span className="font-medium">Withdraw to Khalti</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentIdentifierInput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className={`${
+              isDark
+                ? 'bg-slate-800 border-slate-700'
+                : 'bg-white border-slate-200'
+            } border rounded-2xl p-6 w-full max-w-md`}
+          >
+            <h3
+              className={`text-lg font-bold mb-4 ${
+                isDark ? 'text-white' : 'text-slate-900'
+              }`}
+            >
+              Enter {selectedPaymentMethod === 'esewa' ? 'eSewa Phone' : 'Khalti Phone/Email'}
+            </h3>
+            <input
+              type="text"
+              value={paymentIdentifier}
+              onChange={(e) => setPaymentIdentifier(e.target.value)}
+              placeholder={
+                selectedPaymentMethod === 'esewa'
+                  ? 'Enter your eSewa registered phone (10 digits)'
+                  : 'Enter your Khalti phone or email'
+              }
+              className={`w-full px-3 py-2 mb-4 border rounded ${
+                isDark
+                  ? 'bg-slate-700 border-slate-600 text-white'
+                  : 'bg-white border-slate-300 text-slate-900'
+              }`}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowPaymentIdentifierInput(false);
+                  setPaymentIdentifier('');
+                  setSelectedPaymentMethod(null);
+                }}
+                className={`flex-1 px-4 py-2 rounded ${
+                  isDark
+                    ? 'bg-slate-700 hover:bg-slate-600'
+                    : 'bg-slate-200 hover:bg-slate-300'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPayout}
+                className="flex-1 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              >
+                Confirm Payout
               </button>
             </div>
           </div>

@@ -200,11 +200,14 @@ const makePaymentViaKhalti = (redirectUrl: string) => {
       if (selectedAsset) {
         const uriParts = selectedAsset.uri.split('.');
         const fileExtension = uriParts[uriParts.length - 1];
-        
+        const mimeType =
+          selectedAsset.mimeType ||
+          (selectedAsset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+
         formData.append('file', {
           uri: selectedAsset.uri,
           name: `upload_${Date.now()}.${fileExtension}`,
-          type: selectedAsset.type === 'video' ? 'video/mp4' : 'image/jpeg',
+          type: mimeType,
         } as any);
       }
 

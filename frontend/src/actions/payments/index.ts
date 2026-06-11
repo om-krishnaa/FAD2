@@ -11,11 +11,15 @@ export const getPayments = async (token: string) => {
   }
 };
 
-export const requestPayment = async (token: string, payment_method: string) => {
+export const requestPayment = async (
+  token: string,
+  payment_method: string,
+  payment_identifier?: string
+) => {
   try {
     const response = await axiosInstance.post(
       `/payment`,
-      { payment_method },
+      { payment_method, payment_identifier },
       {
         headers: { Authorization: `Bearer ${token}` },
       }

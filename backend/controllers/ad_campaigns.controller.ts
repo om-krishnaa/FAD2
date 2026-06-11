@@ -61,6 +61,17 @@ export const createAd = async (req: Request, res: Response) => {
     const content_url = path.join(req.file.destination, req.file.filename);
     const file_size = req.file.size;
 
+    const requestProtocol = req.protocol || "http";
+    const requestHost = req.get("host") || "localhost:5000";
+    const backendBaseUrl =
+      process.env.BE_URL && !process.env.BE_URL.includes("localhost")
+        ? process.env.BE_URL
+        : `${requestProtocol}://${requestHost}`;
+    const frontendBaseUrl =
+      process.env.FE_URL && !process.env.FE_URL.includes("localhost")
+        ? process.env.FE_URL
+        : backendBaseUrl;
+
     console.log(payment_method);
 
     const ad_id = await Database.createAdCampaign({
@@ -79,28 +90,28 @@ export const createAd = async (req: Request, res: Response) => {
 
     if (payment_method === "admin_approved") {
       await Database.updateAdTransactionStatus(ad_id, "approved", req.user!.id);
-      return res.json({ success: true, message: "Order Placed Succsesfully" });
+      return res.json({ success: true, message: "Order Placed Successfully" });
     }
+
     if (payment_method === "esewa") {
       const signature = createSignature(
-        `total_amount=${budget},transaction_uuid=${
-          ad_id + "PDA"
-        },product_code=EPAYTEST`
+        `total_amount=${budget},transaction_uuid=${ad_id}PDA,product_code=EPAYTEST`
       );
 
       const formData = {
         amount: budget,
-        failure_url: process.env.FE_URL,
+        failure_url: frontendBaseUrl,
         product_delivery_charge: "0",
         product_service_charge: "0",
         product_code: "EPAYTEST",
-        signature: signature,
+        signature,
         signed_field_names: "total_amount,transaction_uuid,product_code",
-        success_url: process.env.BE_URL + "/api/webhook/esewa/success",
+        success_url: `${backendBaseUrl}/api/webhook/esewa/success`,
         tax_amount: "0",
         total_amount: budget,
-        transaction_uuid: ad_id + "PDA",
+        transaction_uuid: `${ad_id}PDA`,
       };
+
       return res.json({
         success: true,
         message: "Order Placed Successfully",
@@ -110,9 +121,9 @@ export const createAd = async (req: Request, res: Response) => {
 
     if (payment_method === "khalti") {
       const formData = {
-        return_url: process.env.BE_URL + "/api/webhook/khalti/callback",
-        website_url: process.env.FE_URL,
-        amount: budget * 100, //paisa
+        return_url: `${backendBaseUrl}/api/webhook/khalti/callback`,
+        website_url: frontendBaseUrl,
+        amount: budget * 100, // paisa
         purchase_order_id: ad_id,
         purchase_order_name: "test",
       };
@@ -130,7 +141,7 @@ export const createAd = async (req: Request, res: Response) => {
       );
 
       const response = await fetchResponse.json();
-      let redirectUrl = response.payment_url;
+      const redirectUrl = response.payment_url;
       return res.json({
         success: true,
         message: "Order Placed Successfully",
@@ -138,6 +149,11 @@ export const createAd = async (req: Request, res: Response) => {
         redirectUrl,
       });
     }
+
+    return res.status(400).json({
+      success: false,
+      message: "Unsupported payment method",
+    });
   } catch (error: any) {
     console.error(error);
     return res

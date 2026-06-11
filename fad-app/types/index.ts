@@ -30,6 +30,13 @@ export interface DashboardStats {
   adViewsToday: number;
   recentAds: Ad[];
 }
+
+export interface SystemSettings {
+  minimum_withdrawal?: string;
+  cost_per_view?: string;
+  referral_bonus?: string;
+}
+
 export interface ViewAdType {
   user_id: number;
   campaign_id?: number;

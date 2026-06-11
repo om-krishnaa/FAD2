@@ -25,8 +25,9 @@ export const handleEsewaSuccess = async (
   const signature = createSignature(message);
 
   if (signature !== decodedData.signature) {
-    res.json({ message: "Integrity error" });
+    return res.json({ message: "Integrity error" });
   }
+
   await Database.updateAdTransaction(
     decodedData.transaction_uuid.split("PDA")[0],
     "requested",
