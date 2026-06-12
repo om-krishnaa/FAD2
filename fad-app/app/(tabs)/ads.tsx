@@ -123,10 +123,18 @@ const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
   // Mimics web version: handles eSewa response parameters by encoding query string parameters
 const makePaymentViaEsewa = (formData: any) => {
+  const mobileFormData = {
+    ...formData,
+    success_url: String(formData.success_url).replace(
+      '/api/webhook/esewa/success',
+      '/api/webhook/esewa/success/mobile'
+    ),
+  };
+
   const fields = Object.keys(formData)
     .map(
       (key) =>
-        `<input type="hidden" name="${key}" value="${String(formData[key]).replace(/"/g, '&quot;')}" />`
+        `<input type="hidden" name="${key}" value="${String(mobileFormData[key]).replace(/"/g, '&quot;')}" />`
     )
     .join('');
 
@@ -511,19 +519,30 @@ const makePaymentViaKhalti = (redirectUrl: string) => {
       />
     </View>
 
-    <WebView
-      originWhitelist={['*']}
-      source={{ html: paymentHtml }}
-      javaScriptEnabled
-      domStorageEnabled
-      startInLoadingState
-      onNavigationStateChange={(navState) => {
-        if (
-          navState.url.includes('/api/webhook/esewa/success') ||
-          navState.url.includes('/api/webhook/khalti/callback') ||
-          navState.url === 'http://192.168.1.80:5173/' ||
-          navState.url === 'http://192.168.1.80:5173'
-        ) {
+	    <WebView
+	      originWhitelist={['*']}
+	      source={{ html: paymentHtml }}
+	      javaScriptEnabled
+	      domStorageEnabled
+	      startInLoadingState
+	      onMessage={(event) => {
+	        try {
+	          const message = JSON.parse(event.nativeEvent.data);
+	          if (message.type === 'ESEWA_PAYMENT_COMPLETE') {
+	            setPaymentModalVisible(false);
+	            setPaymentHtml('');
+	            loadAds();
+	            Alert.alert('Payment Complete', 'Ad payment was processed.');
+	          }
+	        } catch {
+	          // Ignore non-JSON messages from payment pages.
+	        }
+	      }}
+	      onNavigationStateChange={(navState) => {
+	        if (
+	          navState.url === 'http://192.168.1.80:5173/' ||
+	          navState.url === 'http://192.168.1.80:5173'
+	        ) {
           setPaymentModalVisible(false);
           setPaymentHtml('');
           loadAds();

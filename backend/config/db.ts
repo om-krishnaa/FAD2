@@ -903,6 +903,20 @@ export class Database {
     return result;
   }
 
+  static async getPaymentsByUserId(userId: number) {
+    const [rows] = await pool.execute(
+      `
+      SELECT *
+      FROM transactions
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      `,
+      [userId]
+    );
+
+    return rows;
+  }
+
   static async requestPayment(
     user_id: number,
     amount: number,
@@ -930,6 +944,17 @@ export class Database {
     );
 
     return insertId;
+  }
+
+  static async refundUserBalance(user_id: number, amount: number) {
+    const [result] = await pool.execute(
+      `UPDATE users
+       SET current_balance = IFNULL(current_balance, 0) + ?
+       WHERE id = ?`,
+      [amount, user_id]
+    );
+
+    return result;
   }
 
   static async updateSettings(
@@ -1368,11 +1393,12 @@ export class Database {
 
   static async updateTransaction(params: {
     id: string;
-    transaction_id: string;
+    transaction_id?: string;
     type?: "payout" | "revenue" | "refund" | "bonus";
     amount?: number;
     currency?: string;
     payment_method?: "esewa" | "khalti" | "bank_transfer" | "digital_wallet";
+    payment_reference?: string;
     status?: "pending" | "completed" | "failed" | "cancelled";
     description?: string;
     failure_reason?: string;
@@ -1385,6 +1411,7 @@ export class Database {
       amount,
       currency,
       payment_method,
+      payment_reference,
       status,
       description,
       failure_reason,
@@ -1416,6 +1443,10 @@ export class Database {
     if (payment_method !== undefined) {
       fields.push("payment_method = ?");
       values.push(payment_method);
+    }
+    if (payment_reference !== undefined) {
+      fields.push("payment_reference = ?");
+      values.push(payment_reference);
     }
     if (status !== undefined) {
       fields.push("status = ?");

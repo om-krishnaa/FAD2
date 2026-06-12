@@ -2,7 +2,7 @@ import { apiRequest } from '@/lib/api';
 import { Payment } from '@/types';
 
 export async function getPayments(token: string): Promise<Payment[]> {
-  return apiRequest('/payment', {
+  return apiRequest('/payment/my', {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 
@@ -283,6 +283,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#d1d5db',
   },
+  warningText: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: '#facc15',
+  },
   summaryGrid: {
     marginTop: 18,
     marginBottom: 22,
@@ -332,6 +339,29 @@ const styles = StyleSheet.create({
   },
   methodTextActive: {
     color: '#ffffff',
+  },
+  inputLabel: {
+    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#d1d5db',
+  },
+  textInput: {
+    minHeight: 52,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#6b7280',
+    backgroundColor: '#ffffff',
+    fontSize: 16,
+    color: '#0f172a',
+  },
+  button: {
+    minHeight: 46,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionGap: {
     marginTop: 22,

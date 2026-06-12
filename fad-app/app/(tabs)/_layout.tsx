@@ -132,7 +132,6 @@ export default function TabLayout() {
         <Tabs.Screen name="users" options={{ href: null }} />
         <Tabs.Screen name="security" options={{ href: null }} />
         <Tabs.Screen name="explore" options={{ href: null }} />
-        <Tabs.Screen name="payment" options={{ href: null }} />
       </Tabs>
     );
   }
@@ -176,7 +175,6 @@ export default function TabLayout() {
       <Tabs.Screen name="users" options={{ href: null }} />
       <Tabs.Screen name="security" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
-      <Tabs.Screen name="payment" options={{ href: null }} />
     </Tabs>
   );
 }

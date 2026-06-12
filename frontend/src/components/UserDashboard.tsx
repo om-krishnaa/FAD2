@@ -86,6 +86,16 @@ export default function UserDashboard() {
   const currentBalance = Number(userDetails?.current_balance || 0);
   const minimumWithdrawal = Number(settings?.minimum_withdrawal || 0);
   const canRequestPayment = currentBalance > 0 && currentBalance >= minimumWithdrawal;
+  const apiBaseUrl = (
+    import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  ).replace(/\/api\/?$/, '');
+
+  const getMediaUrl = (contentUrl?: string) => {
+    if (!contentUrl) return '';
+    if (/^https?:\/\//i.test(contentUrl)) return contentUrl;
+
+    return `${apiBaseUrl}/${contentUrl.replace(/^\/+/, '')}`;
+  };
 
   const handleRequestPayment = async (payment_method: string) => {
     setSelectedPaymentMethod(payment_method as 'esewa' | 'khalti');
@@ -137,12 +147,26 @@ export default function UserDashboard() {
   const handleSendAdView = async () => {
     if (!user || timerCompleted) return;
 
+    const activeAd = displayAd || getCurrentAd();
+
+    if (!activeAd?.id) {
+      console.error('Failed to record ad view: missing campaign id.');
+      return;
+    }
+
     let fullDuration = 0;
     let durationWatched = 0;
     let completionPercentage = 0;
     if (videoRef.current instanceof HTMLVideoElement) {
-      fullDuration = Math.floor(videoRef.current.duration) - 1;
-      durationWatched = Math.floor(videoRef.current.currentTime) - 1;
+      const rawDuration = Number(videoRef.current.duration);
+      const rawCurrentTime = Number(videoRef.current.currentTime);
+
+      fullDuration = Number.isFinite(rawDuration)
+        ? Math.max(Math.floor(rawDuration), 1)
+        : 15;
+      durationWatched = Number.isFinite(rawCurrentTime)
+        ? Math.max(Math.floor(rawCurrentTime), 0)
+        : 15;
       completionPercentage = fullDuration
         ? parseFloat(((durationWatched / fullDuration) * 100).toFixed(2))
         : 0;
@@ -155,7 +179,7 @@ export default function UserDashboard() {
 
     const payload = {
       user_id: user.id,
-      campaign_id: currentMedia?.id,
+      campaign_id: Number(activeAd.id),
       view_duration: durationWatched,
       full_duration: fullDuration,
       completion_percentage: completionPercentage,
@@ -203,7 +227,10 @@ export default function UserDashboard() {
 
     const currentAd = getCurrentAd();
     if (currentAd?.ad_type === 'video' && videoRef.current) {
-      videoRef.current.play();
+      videoRef.current.play().catch((error) => {
+        console.error('Unable to play ad media:', error);
+        toast.error('Unable to play this ad media.');
+      });
       setIsPlaying(true);
     }
 
@@ -309,7 +336,10 @@ export default function UserDashboard() {
         }
       } else {
         // Play video
-        videoRef.current.play();
+        videoRef.current.play().catch((error) => {
+          console.error('Unable to play ad media:', error);
+          toast.error('Unable to play this ad media.');
+        });
         setIsPlaying(true);
 
         // Resume timer
@@ -846,10 +876,7 @@ export default function UserDashboard() {
                       <>
                         <video
                           ref={videoRef}
-                          src={
-                            import.meta.env.VITE_BACKEND_URL +
-                            displayAd.content_url
-                          }
+                          src={getMediaUrl(displayAd.content_url)}
                           className="object-cover w-full h-full"
                           onClick={togglePlay}
                           onLoadedMetadata={() => {
@@ -903,10 +930,7 @@ export default function UserDashboard() {
                       </>
                     ) : (
                       <img
-                        src={
-                          import.meta.env.VITE_BACKEND_URL +
-                          displayAd.content_url
-                        }
+                        src={getMediaUrl(displayAd.content_url)}
                         alt={displayAd.title}
                         className="object-cover w-full h-full cursor-pointer"
                         onClick={() => !isViewing && startViewing()}
