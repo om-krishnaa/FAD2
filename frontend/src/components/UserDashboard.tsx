@@ -113,6 +113,11 @@ export default function UserDashboard() {
     }
 
     try {
+      const confirmed = window.confirm(
+        `Send Rs ${currentBalance} to your ${selectedPaymentMethod} account?`
+      );
+      if (!confirmed) return;
+
       const res = (await requestPayment(accessToken!, selectedPaymentMethod, paymentIdentifier)) as {
         success: boolean;
         message: string;
@@ -122,13 +127,8 @@ export default function UserDashboard() {
       };
       if (!res.success) return toast.error(res.message || 'Payout Failed.');
 
-      setUserDetails((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          current_balance: '0',
-        };
-      });
+      const updatedUser = await getUser(accessToken!);
+      setUserDetails(updatedUser);
 
       setShowPaymentIdentifierInput(false);
       setPaymentIdentifier('');
